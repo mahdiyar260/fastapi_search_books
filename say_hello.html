@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FastAPI Hello UI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 350px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        input {
+            width: 80%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background-color: #2a5298;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background-color: #1e3c72;
+        }
+
+        .result {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #2a5298;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Say Hello 👋</h2>
+    <input type="text" id="nameInput" placeholder="Enter your name">
+    <br>
+    <button onclick="sendRequest()">Send</button>
+    <div class="result" id="result"></div>
+</div>
+
+<script>
+    async function sendRequest() {
+        const name = document.getElementById("nameInput").value;
+
+        if (!name) {
+            alert("Please enter a name");
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/hello/${name}`);
+            const data = await response.json();
+
+            document.getElementById("result").innerText = data.message;
+        } catch (error) {
+            document.getElementById("result").innerText = "Error connecting to server";
+        }
+    }
+</script>
+
+</body>
+</html>
