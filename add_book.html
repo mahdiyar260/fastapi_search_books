@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Add a New Book 📚</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background: linear-gradient(135deg, #1e3c72, #2a5298);
+                margin: 0;
+                padding: 40px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            .card {
+                background: white;
+                border-radius: 15px;
+                padding: 30px;
+                width: 400px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            }
+            h2 {
+                text-align: center;
+                color: #2a5298;
+                margin-bottom: 20px;
+            }
+            input, button {
+                width: 100%;
+                padding: 10px;
+                margin-bottom: 15px;
+                border-radius: 8px;
+                border: 1px solid #ccc;
+                font-size: 14px;
+            }
+            button {
+                background-color: #2a5298;
+                color: white;
+                border: none;
+                cursor: pointer;
+            }
+            button:hover {
+                background-color: #1e3c72;
+            }
+            .message {
+                text-align: center;
+                margin-top: 15px;
+                font-weight: bold;
+            }
+            .message.success { color: green; }
+            .message.error { color: red; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h2>Add a New Book</h2>
+            <form id="bookForm">
+                <input type="text" name="title" placeholder="Book Title" required minlength="3" maxlength="100">
+                <input type="text" name="author" placeholder="Author" required>
+                <input type="text" name="publisher" placeholder="Publisher" required>
+                <input type="file" name="image" accept="image/*">
+                <button type="submit">Add Book</button>
+            </form>
+            <div class="message" id="msg"></div>
+        </div>
+
+        <script>
+            const form = document.getElementById("bookForm");
+            const msgDiv = document.getElementById("msg");
+
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault();
+
+                const formData = new FormData(form);
+
+                try {
+                    const res = await fetch("http://127.0.0.1:8000/books/add", {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        msgDiv.textContent = data.message;
+                        msgDiv.className = "message success";
+                        form.reset();
+                    } else {
+                        msgDiv.textContent = data.detail || "Error adding book";
+                        msgDiv.className = "message error";
+                    }
+                } catch(err) {
+                    msgDiv.textContent = "Cannot connect to server";
+                    msgDiv.className = "message error";
+                }
+            });
+        </script>
+    </body>
+</html>

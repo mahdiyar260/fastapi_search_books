@@ -1,22 +1,152 @@
 [
-    {"title": "Atomic Habits", "author": "James Clear", "publisher": "Avery"},
-    {"title": "Deep Work", "author": "Cal Newport", "publisher": "Grand Central"},
-    {"title": "Clean Code", "author": "Robert C. Martin", "publisher": "Prentice Hall"},
-    {"title": "The Pragmatic Programmer", "author": "Andrew Hunt", "publisher": "Addison-Wesley"},
-    {"title": "The Clean Coder", "author": "Robert C. Martin", "publisher": "Prentice Hall"},
-    {"title": "So Good They Can't Ignore You", "author": "Cal Newport", "publisher": "Grand Central"},
-    {"title": "The 7 Habits of Highly Effective People", "author": "Stephen Covey", "publisher": "Free Press"},
-    {"title": "Deep Learning", "author": "Ian Goodfellow", "publisher": "MIT Press"},
-    {"title": "Design Patterns", "author": "Erich Gamma", "publisher": "Addison-Wesley"},
-    {"title": "Refactoring", "author": "Martin Fowler", "publisher": "Addison-Wesley"},
-    {"title": "The Art of Computer Programming", "author": "Donald Knuth", "publisher": "Addison-Wesley"},
-    {"title": "Python Crash Course", "author": "Eric Matthes", "publisher": "No Starch Press"},
-    {"title": "Effective Python", "author": "Brett Slatkin", "publisher": "Pearson"},
-    {"title": "Python Tricks", "author": "Dan Bader", "publisher": "Dan Bader Books"},
-    {"title": "Fluent Python", "author": "Luciano Ramalho", "publisher": "O'Reilly Media"},
-    {"title": "Clean Architecture", "author": "Robert C. Martin", "publisher": "Prentice Hall"},
-    {"title": "Algorithms", "author": "Robert Sedgewick", "publisher": "Addison-Wesley"},
-    {"title": "Introduction to Algorithms", "author": "Thomas H. Cormen", "publisher": "MIT Press"},
-    {"title": "The Mythical Man-Month", "author": "Frederick Brooks", "publisher": "Addison-Wesley"},
-    {"title": "Software Engineering", "author": "Ian Sommerville", "publisher": "Pearson"}
+  {
+    "title": "Atomic Habits",
+    "author": "James Clear",
+    "publisher": "Avery",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Deep Work",
+    "author": "Cal Newport",
+    "publisher": "Grand Central",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Clean Code",
+    "author": "Robert C. Martin",
+    "publisher": "Prentice Hall",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "The Pragmatic Programmer",
+    "author": "Andrew Hunt",
+    "publisher": "Addison-Wesley",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "The Clean Coder",
+    "author": "Robert C. Martin",
+    "publisher": "Prentice Hall",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "So Good They Can't Ignore You",
+    "author": "Cal Newport",
+    "publisher": "Grand Central",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "The 7 Habits of Highly Effective People",
+    "author": "Stephen Covey",
+    "publisher": "Free Press",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Deep Learning",
+    "author": "Ian Goodfellow",
+    "publisher": "MIT Press",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Design Patterns",
+    "author": "Erich Gamma",
+    "publisher": "Addison-Wesley",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Refactoring",
+    "author": "Martin Fowler",
+    "publisher": "Addison-Wesley",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "The Art of Computer Programming",
+    "author": "Donald Knuth",
+    "publisher": "Addison-Wesley",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Python Crash Course",
+    "author": "Eric Matthes",
+    "publisher": "No Starch Press",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Effective Python",
+    "author": "Brett Slatkin",
+    "publisher": "Pearson",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Python Tricks",
+    "author": "Dan Bader",
+    "publisher": "Dan Bader Books",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Fluent Python",
+    "author": "Luciano Ramalho",
+    "publisher": "O'Reilly Media",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Clean Architecture",
+    "author": "Robert C. Martin",
+    "publisher": "Prentice Hall",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Algorithms",
+    "author": "Robert Sedgewick",
+    "publisher": "Addison-Wesley",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Introduction to Algorithms",
+    "author": "Thomas H. Cormen",
+    "publisher": "MIT Press",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "The Mythical Man-Month",
+    "author": "Frederick Brooks",
+    "publisher": "Addison-Wesley",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "Software Engineering",
+    "author": "Ian Sommerville",
+    "publisher": "Pearson",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "book1",
+    "author": "author1",
+    "publisher": "publisher1",
+    "image_path": "images/book.png"
+  },
+  {
+    "title": "book2",
+    "author": "author2",
+    "publisher": "publisher2",
+    "image_path": "images/elias313_82.jpg"
+  },
+  {
+    "title": "Harry Potter 1",
+    "author": "J.K. Rowling",
+    "publisher": "Unknown",
+    "image_path": "images/harry potter.png"
+  },
+  {
+    "title": "Harry Potter 2",
+    "author": "J.K Rowling",
+    "publisher": "Unknown",
+    "image_path": "images/harry potter.png"
+  },
+  {
+    "title": "Harry Potter 3",
+    "author": "J.K. Rowling",
+    "publisher": "Unknown",
+    "image_path": "images/harry potter.png"
+  }
 ]

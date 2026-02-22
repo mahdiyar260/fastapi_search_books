@@ -3,15 +3,21 @@ venv/
 
 # Python cache
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
+*.pyd
 
-# System files
+# Environment files
+.env
+
+# Database files (اگه local هستن)
+books.json
+
+# OS files
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-
-# Optional: Temporary files from editors
+# IDE/editor files
+.vscode/
+.idea/
 *.swp
-*.swo
