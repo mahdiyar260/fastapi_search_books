@@ -1,42 +1,57 @@
 
 from fastapi import FastAPI, Query, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from psycopg2.extras import RealDictCursor 
+from psycopg2.extras import RealDictCursor
+from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import Optional, BinaryIO
+from psycopg2 import pool
 import psycopg2
 import shutil
+import json
+import redis
+import uuid
 import os
 
-# مشخصات اتصال به دیتابیس
+#---------------DATA BASE---------------#
+
 DB_HOST = "localhost"
 DB_NAME = "book_managementdb"
-DB_USER = "Your_PostgreSQL_Username"
-DB_PASS = "Your_PostgreSQL_Password"
+DB_USER = "mahdiyar260"
+DB_PASS = "m@2601007"
 
-def get_connection():
-    return psycopg2.connect(
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    
+    
+    # Startup
+    app.state.connection_pool = pool.SimpleConnectionPool(
+        1,
+        10,
         host=DB_HOST,
         dbname=DB_NAME,
         user=DB_USER,
         password=DB_PASS,
-        cursor_factory=RealDictCursor
     )
+    
+    yield  # App
+    
+    # Shutdown
+    if app.state.connection_pool:
+        app.state.connection_pool.closeall()
+
+def get_connection() -> psycopg2.extensions.connection:
+    return app.state.connection_pool.getconn()
 
 
-# -----------------------------
-# مدل Pydantic
-# -----------------------------
-class Book(BaseModel):
-    title: str = Field(..., min_length=3, max_length=100)
-    author: str
-    publisher: str
-    image_path: str | None = None
+#---------------REDIS/CACHE---------------#
 
-# -----------------------------
-# اپلیکیشن FastAPI
-# -----------------------------
-app = FastAPI()
+r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+
+
+#---------------APP & MODELS---------------#
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,60 +61,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -----------------------------
-# لود کتاب‌ها از دیتابیس
-# -----------------------------
-def load_books() -> List[Book]:
-    books = []
-    conn = get_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM books;")
-            rows = cur.fetchall()
-            for r in rows:
-                books.append(Book(**r))
-    finally:
-        conn.close()
-    return books
-
-# -----------------------------
-# ذخیره کتاب‌ها روی دیتابیس
-# -----------------------------
-def save_books(books: List[Book]):
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            for b in books:
-                if not b.image_path:
-                    b.image_path = "images/book.png"
-                cur.execute(
-                    """
-                    INSERT INTO books (title, author, publisher, image_path)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (id) DO UPDATE
-                    SET title=EXCLUDED.title,
-                        author=EXCLUDED.author,
-                        publisher=EXCLUDED.publisher,
-                        image_path=EXCLUDED.image_path;
-                    """,
-                    (b.title, b.author, b.publisher, b.image_path)
-                )
-        conn.commit()
-    finally:
-        conn.close()
+class Book(BaseModel):
+    title: str = Field(..., min_length=3, max_length=100)
+    author: str
+    publisher: str
+    image_path: str | None = None
 
 
+#---------------END POINTS---------------#
 
-# -----------------------------
-# Home
-# -----------------------------
 @app.get("/")
 def home():
     return {"message": "Welcome to Book Search API!"}
 
-# -----------------------------
-# اضافه کردن کتاب جدید
-# -----------------------------
 
 @app.post("/books/add", summary="Add a new book")
 def add_book(
@@ -108,13 +82,32 @@ def add_book(
     publisher: str = Form(...),
     image: Optional[UploadFile] = File(None)
 ):
-    if not image or image.filename == "":
-        image_path = "images/book.png"
-    else:
-        os.makedirs("images", exist_ok=True)  # اضافه کن قبل از open
-        image_path = f"images/{image.filename}"
+    
+    max_file_size = 10 * 1024 * 1024  # 10 MB
+    allowed_extensions = {"jpg", "jpeg", "png", "gif"}
+
+    if image and image.filename != "":
+
+        ext = image.filename.split(".")[-1].lower()
+        if ext not in allowed_extensions:
+            return {"error": f"File format not allowed. Allowed: {', '.join(allowed_extensions)}"}
+
+        image.file.seek(0, os.SEEK_END)
+        file_size = image.file.tell()
+        image.file.seek(0)
+        if file_size > max_file_size:
+            return {"error": "File size exceeds 10 MB limit"}
+
+
+        os.makedirs("images", exist_ok=True)
+        filename = f"{uuid.uuid4().hex}_{image.filename}"
+        image_path = f"images/{filename}"
+
         with open(image_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
+ 
+    else:
+        image_path = "images/book.png"
 
     conn = get_connection()
     try:
@@ -127,43 +120,118 @@ def add_book(
                 (title, author, publisher, image_path)
             )
         conn.commit()
-    finally:
-        conn.close()
 
+        keys = r.get("search:*")
+        if keys:
+            r.delete(*keys)
+
+    finally:
+        app.state.connection_pool.putconn(conn)
     return {"message": "Book added successfully"}
 
-# -----------------------------
-# سرچ کتاب‌ها
-# -----------------------------
-@app.get("/books/search", summary="Search books by title, author, or publisher")
+
+@app.get("/books/search")
 def search_books(
-    query: str = Query(..., min_length=3, max_length=100, description="Text to search in title, author, or publisher"),
+    query: str = Query(..., min_length=3, max_length=100),
     skip: int = 0,
     limit: int = 10
 ):
-    books = load_books()  # هر بار لود کتاب‌ها از فایل
-    query_lower = query.lower()
-    results = [book for book in books if query_lower in book.title.lower()
-                                         or query_lower in book.author.lower()
-                                         or query_lower in book.publisher.lower()]
-    return results[skip: skip + limit]  # pagination
 
-@app.get("/books/all", summary="Get all books")
+    cache_key = f"search:{query.lower()}:{skip}:{limit}"
+
+    cached = r.get(cache_key)
+    if cached:
+        data = json.loads(cached)
+        return {"from_cache": True, "results": data}
+
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT * FROM books
+                WHERE LOWER(title) LIKE LOWER(%s)
+                OR LOWER(author) LIKE LOWER(%s)
+                OR LOWER(publisher) LIKE LOWER(%s)
+                LIMIT %s OFFSET %s;
+                """,
+                (f"%{query}%", f"%{query}%", f"%{query}%", limit, skip)
+            )
+            rows = cur.fetchall()
+
+            r.set(cache_key, json.dumps(rows), ex=60)
+
+            return rows
+    finally:
+        app.state.connection_pool.putconn(conn)
+
+
+@app.get("/books/all")
 def get_all_books(skip: int = 0, limit: int = 100):
-    """
-    Return all books in memory with optional pagination.
-    """
-    books = load_books()
-    return [b.dict() for b in books][skip: skip + limit]
+    conn = get_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM books LIMIT %s OFFSET %s;",
+                (limit, skip)
+            )
+            return cur.fetchall()
+    finally:
+        app.state.connection_pool.putconn(conn)
 
-# -----------------------------
-# سلام
-# -----------------------------
+
+@app.get("/books/count_by_author")
+def count_books_by_author(author: str = Query(..., min_length=1, max_length=100)):
+    """
+    Return the number of books written by the given author.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) AS total FROM books WHERE author = %s;",
+                (author,)
+            )
+            result = cur.fetchone()
+            return {"author": author, "total_books": result[0]}
+    finally:
+        app.state.connection_pool.putconn(conn)
+
+
 @app.get("/hello/{name}")
 def say_hello(name: str):
     return {"message": f"Hello {name}!"}
 
+#---------------ADD BOOKS---------------#
+@app.post("/add_bulk/{count}")
+def add_bulk_books(count: int):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            for i in range(count):
+                cur.execute(
+                    """
+                    INSERT INTO books (title, author, publisher, image_path)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (
+                        f"Book {i}",
+                        f"Author {i % 100}",
+                        "TestPublisher",
+                        "images/book.png",
+                    )
+                )
+        conn.commit()
 
+        keys = r.keys("search:*")
+        if keys:
+            r.delete(*keys)
+
+        return {"message": f"{count} books added successfully."}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        app.state.connection_pool.putconn(conn)
 
 
 

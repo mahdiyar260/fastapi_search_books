@@ -1,148 +1,192 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Book Gallery 📚</title>
-        <style>
-            body {
+<head>
+    <meta charset="UTF-8">
+    <title>Book Gallery 📚</title>
+    <style>
+        body {
             font-family: Arial, sans-serif;
             background: linear-gradient(135deg, #1e3c72, #2a5298);
             margin: 0;
             padding: 40px;
             color: #333;
-            box-sizing: border-box; /* اضافه شده */
+            box-sizing: border-box;
+        }
+
+        h1 { text-align: center; color: white; margin-bottom: 30px; }
+
+        #searchDiv, #countDiv {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        #searchInput, #authorInput {
+            padding: 10px;
+            width: 300px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        #searchBtn, #countBtn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            background-color: #2a5298;
+            color: white;
+            cursor: pointer;
+        }
+
+        #searchBtn:hover, #countBtn:hover { background-color: #1e3c72; }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .book-card {
+            background: white;
+            width: 220px;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .book-card img {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            object-fit: contain;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            padding: 5px;
+            background-color: #f0f0f0;
+        }
+
+        .book-title { font-weight: bold; color: #2a5298; margin-bottom: 5px; }
+        .book-info { font-size: 14px; color: #555; margin-bottom: 3px; }
+        #countResult { font-weight: bold; color: white; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>Book Gallery 📚</h1>
+
+    <!-- Search Books -->
+    <div id="searchDiv">
+        <input type="text" id="searchInput" placeholder="Search by title, author, or publisher">
+        <button id="searchBtn">Search</button>
+    </div>
+
+    <!-- Count Books by Author -->
+    <div id="countDiv">
+        <input type="text" id="authorInput" placeholder="Enter author name">
+        <button id="countBtn">Count Books</button>
+        <p id="countResult"></p>
+    </div>
+
+    <!-- Books Container -->
+    <div class="container" id="booksContainer"></div>
+
+    <script>
+        const booksContainer = document.getElementById("booksContainer");
+        const searchBtn = document.getElementById("searchBtn");
+        const searchInput = document.getElementById("searchInput");
+
+        const countBtn = document.getElementById("countBtn");
+        const authorInput = document.getElementById("authorInput");
+        const countResult = document.getElementById("countResult");
+
+        // Enter key triggers search
+        searchInput.addEventListener("keydown", (event) => {
+            if(event.key === "Enter") searchBtn.click();
+        });
+
+        // Enter key triggers count
+        authorInput.addEventListener("keydown", (event) => {
+            if(event.key === "Enter") countBtn.click();
+        });
+
+        // Display books in a 4-column grid
+        function displayBooks(books) {
+            booksContainer.innerHTML = "";
+            if (books.length === 0) {
+                booksContainer.innerHTML = "<p style='color:white;'>No books found</p>";
+                return;
             }
 
-            h1 { text-align: center; color: white; margin-bottom: 30px; }
-            .container {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 20px;
-                justify-content: center;
-            }
+            const grid = document.createElement("div");
+            grid.style.display = "grid";
+            grid.style.gridTemplateColumns = "repeat(4, 1fr)";
+            grid.style.gap = "20px";
 
-            .book-card {
-                background: white;
-                width: 220px;
-                border-radius: 15px;
-                padding: 15px;
-                box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-                text-align: center;
-                box-sizing: border-box; /* اضافه شده */
-            }
-            .book-card img {
-                width: 100%;
-                height: auto;
-                aspect-ratio: 1 / 1;
-                object-fit: contain; /* قبلاً cover بود، حالا contain */
-                border-radius: 10px;
-                margin-bottom: 10px;
-                padding: 5px; /* اضافه شده برای فاصله از لبه‌ها */
-                background-color: #f0f0f0; /* اختیاری، برای نمایش بهتر تصویر با حاشیه */
-            }
-
-            .book-title { font-weight: bold; color: #2a5298; margin-bottom: 5px; }
-            .book-info { font-size: 14px; color: #555; margin-bottom: 3px; }
-            #searchDiv { text-align: center; margin-bottom: 30px; }
-            #searchInput { padding: 10px; width: 300px; border-radius: 8px; border: 1px solid #ccc; }
-            #searchBtn { padding: 10px 20px; border-radius: 8px; border: none; background-color: #2a5298; color: white; cursor: pointer; }
-            #searchBtn:hover { background-color: #1e3c72; }
-        </style>
-    </head>
-    <body>
-
-        <h1>Book Gallery 📚</h1>
-
-        <div id="searchDiv">
-            <input type="text" id="searchInput" placeholder="Search by title, author, or publisher">
-            <button id="searchBtn">Search</button>
-        </div>
-
-        <div class="container" id="booksContainer"></div>
-        <script>
-
-            const booksContainer = document.getElementById("booksContainer");
-            const searchBtn = document.getElementById("searchBtn");
-            const searchInput = document.getElementById("searchInput");
-
-            // وقتی Enter زده شد، سرچ اجرا شود
-            searchInput.addEventListener("keydown", (event) => {
-                if (event.key === "Enter") {
-                    searchBtn.click();  // همان عملکرد کلیک روی دکمه
-                }
+            books.forEach(book => {
+                const div = document.createElement("div");
+                div.className = "book-card";
+                div.innerHTML = `
+                    <img src="${book.image_path || 'images/book.png'}" alt="${book.title}">
+                    <div class="book-title">${book.title}</div>
+                    <div class="book-info">Author: ${book.author}</div>
+                    <div class="book-info">Publisher: ${book.publisher}</div>
+                `;
+                grid.appendChild(div);
             });
 
-            // تابع نمایش کتاب‌ها با گرید ۴ ستونه
-            function displayBooks(books) {
-                booksContainer.innerHTML = "";
-                if (books.length === 0) {
-                    booksContainer.innerHTML = "<p style='color:white;'>No books found</p>";
-                    return;
-                }
+            booksContainer.appendChild(grid);
+        }
 
-                const grid = document.createElement("div");
-                grid.style.display = "grid";
-                grid.style.gridTemplateColumns = "repeat(4, 1fr)";
-                grid.style.gap = "20px";
-
-                books.forEach(book => {
-                    const div = document.createElement("div");
-                    div.className = "book-card";
-                    div.style.background = "white";
-                    div.style.borderRadius = "10px";
-                    div.style.padding = "10px";
-                    div.style.textAlign = "center";
-                    div.style.boxShadow = "0 5px 15px rgba(0,0,0,0.2)";
-
-                    div.innerHTML = `
-                        <img src="${book.image_path || 'images/book.png'}" alt="${book.title}">
-                        <div class="book-title" style="font-weight:bold; margin-top:10px; color:#2a5298;">${book.title}</div>
-                        <div class="book-info" style="font-size:14px; color:#555;">Author: ${book.author}</div>
-                        <div class="book-info" style="font-size:14px; color:#555;">Publisher: ${book.publisher}</div>
-                    `;
-                    grid.appendChild(div);
-                });
-
-                booksContainer.appendChild(grid);
+        // Load all books
+        async function loadAllBooks() {
+            try {
+                const res = await fetch("http://127.0.0.1:8000/books/all");
+                const data = await res.json();
+                displayBooks(data);
+            } catch(err) {
+                booksContainer.innerHTML = "<p style='color:white;'>Error connecting to server</p>";
             }
+        }
 
-            // دریافت همه کتاب‌ها
-            async function loadAllBooks() {
-                try {
-                    const res = await fetch("http://127.0.0.1:8000/books/all");
-                    const data = await res.json();
-                    displayBooks(data);
-                } catch(err) {
-                    booksContainer.innerHTML = "<p style='color:white;'>Error connecting to server</p>";
-                }
+        // Search books
+        searchBtn.addEventListener("click", async () => {
+            const query = searchInput.value.trim();
+            if(query.length === 0) {
+                loadAllBooks();
+                return;
             }
+            if(query.length < 3) {
+                alert("Search query must be at least 3 characters");
+                return;
+            }
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/books/search?query=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                displayBooks(data);
+            } catch(err) {
+                booksContainer.innerHTML = "<p style='color:white;'>Error connecting to server</p>";
+            }
+        });
 
-            // سرچ کتاب
-            searchBtn.addEventListener("click", async () => {
-                const query = searchInput.value.trim();
+        // Count books by author
+        countBtn.addEventListener("click", async () => {
+            const author = authorInput.value.trim();
+            if(author.length === 0) {
+                alert("Please enter an author name");
+                return;
+            }
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/books/count_by_author?author=${encodeURIComponent(author)}`);
+                const data = await res.json();
+                countResult.textContent = `${data.author} has ${data.total_books} book(s)`;
+            } catch(err) {
+                countResult.textContent = "Error connecting to server";
+            }
+        });
 
-                if(query.length === 0) {
-                    // اگر سرچ خالی بود → همه کتاب‌ها
-                    loadAllBooks();
-                    return;
-                }
-
-                if(query.length < 3) {
-                    alert("Search query must be at least 3 characters");
-                    return;
-                }
-
-                try {
-                    const res = await fetch(`http://127.0.0.1:8000/books/search?query=${encodeURIComponent(query)}`);
-                    const data = await res.json();
-                    displayBooks(data);
-                } catch(err) {
-                    booksContainer.innerHTML = "<p style='color:white;'>Error connecting to server</p>";
-                }
-            });
-
-            // بارگذاری اولیه همه کتاب‌ها
-            loadAllBooks();
-        </script>
-    </body>
+        // Initial load
+        loadAllBooks();
+    </script>
+</body>
 </html>

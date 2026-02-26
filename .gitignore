@@ -12,6 +12,7 @@ __pycache__/
 
 # Database files (اگه local هستن)
 books.json
+harry potter.png
 
 # OS files
 .DS_Store
