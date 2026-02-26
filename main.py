@@ -1,52 +1,47 @@
 
 from fastapi import FastAPI, Query, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from psycopg2.extras import RealDictCursor
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
-from typing import Optional, BinaryIO
-from psycopg2 import pool
-import psycopg2
+from typing import Optional
+import redis.asyncio as aioredis
+from dotenv import load_dotenv
+import asyncpg
 import shutil
 import json
-import redis
 import uuid
 import os
 
 #---------------DATA BASE---------------#
 
-DB_HOST = "localhost"
-DB_NAME = "book_managementdb"
-DB_USER = "mahdiyar260"
-DB_PASS = "m@2601007"
+load_dotenv()
+
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASS = os.getenv("DB_PASS")
+REDIS_URL = os.getenv("REDIS_URL")
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    
-    
-    # Startup
-    app.state.connection_pool = pool.SimpleConnectionPool(
-        1,
-        10,
+async def lifespan(fastapi_app: FastAPI):
+
+    fastapi_app.state.pg_pool = await asyncpg.create_pool( # type: ignore
         host=DB_HOST,
-        dbname=DB_NAME,
+        database=DB_NAME,
         user=DB_USER,
         password=DB_PASS,
+        min_size=1,
+        max_size=10,
     )
-    
-    yield  # App
-    
-    # Shutdown
-    if app.state.connection_pool:
-        app.state.connection_pool.closeall()
 
-def get_connection() -> psycopg2.extensions.connection:
-    return app.state.connection_pool.getconn()
+    yield
+
+    await fastapi_app.state.pg_pool.close()
 
 
 #---------------REDIS/CACHE---------------#
 
-r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+r = aioredis.from_url(REDIS_URL, decode_responses=True)
 
 
 #---------------APP & MODELS---------------#
@@ -71,12 +66,12 @@ class Book(BaseModel):
 #---------------END POINTS---------------#
 
 @app.get("/")
-def home():
+async def home():
     return {"message": "Welcome to Book Search API!"}
 
 
 @app.post("/books/add", summary="Add a new book")
-def add_book(
+async def add_book(
     title: str = Form(..., min_length=3, max_length=100),
     author: str = Form(...),
     publisher: str = Form(...),
@@ -104,34 +99,30 @@ def add_book(
         image_path = f"images/{filename}"
 
         with open(image_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
+            shutil.copyfileobj(image.file, buffer) # type: ignore
  
     else:
         image_path = "images/book.png"
 
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO books (title, author, publisher, image_path)
-                VALUES (%s, %s, %s, %s);
-                """,
-                (title, author, publisher, image_path)
-            )
-        conn.commit()
+    async with app.state.pg_pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO books (title, author, publisher, image_path)
+            VALUES ($1, $2, $3, $4)
+            """,
+            title, author, publisher, image_path
+        )
 
-        keys = r.get("search:*")
-        if keys:
-            r.delete(*keys)
+    # پاک کردن کش
+    keys = r.keys("search:*")
+    if keys:
+        await r.delete(*keys)
 
-    finally:
-        app.state.connection_pool.putconn(conn)
     return {"message": "Book added successfully"}
 
 
 @app.get("/books/search")
-def search_books(
+async def search_books(
     query: str = Query(..., min_length=3, max_length=100),
     skip: int = 0,
     limit: int = 10
@@ -139,104 +130,109 @@ def search_books(
 
     cache_key = f"search:{query.lower()}:{skip}:{limit}"
 
-    cached = r.get(cache_key)
+    cached = await r.get(cache_key)
     if cached:
         data = json.loads(cached)
         return {"from_cache": True, "results": data}
 
-    conn = get_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT * FROM books
-                WHERE LOWER(title) LIKE LOWER(%s)
-                OR LOWER(author) LIKE LOWER(%s)
-                OR LOWER(publisher) LIKE LOWER(%s)
-                LIMIT %s OFFSET %s;
-                """,
-                (f"%{query}%", f"%{query}%", f"%{query}%", limit, skip)
-            )
-            rows = cur.fetchall()
+    async with app.state.pg_pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT * FROM books
+            WHERE LOWER(title) LIKE LOWER($1)
+            OR LOWER(author) LIKE LOWER($1)
+            OR LOWER(publisher) LIKE LOWER($1)
+            LIMIT $2 OFFSET $3;
+            """,
+            f"%{query}%",
+            limit,
+            skip
+        )
+        result = [dict(row) for row in rows]
 
-            r.set(cache_key, json.dumps(rows), ex=60)
+    await r.set(cache_key, json.dumps(result), ex=60)
 
-            return rows
-    finally:
-        app.state.connection_pool.putconn(conn)
+    return rows
 
 
 @app.get("/books/all")
-def get_all_books(skip: int = 0, limit: int = 100):
-    conn = get_connection()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM books LIMIT %s OFFSET %s;",
-                (limit, skip)
-            )
-            return cur.fetchall()
-    finally:
-        app.state.connection_pool.putconn(conn)
+async def get_all_books(skip: int = 0, limit: int = 100):
+    cache_key = f"all_books:{skip}:{limit}"
+    cached = await r.get(cache_key)
+    if cached:
+        data = json.loads(cached)
+        return {"from_cache": True, "results": data}
+
+    async with app.state.pg_pool.acquire() as conn:
+
+        rows = await conn.fetch(
+            "SELECT * FROM books LIMIT $1 OFFSET $2;",
+            limit,
+            skip
+        )
+
+        result = [dict(row) for row in rows]
+
+    await r.set(cache_key, json.dumps(result), ex=60)
+    return result
 
 
 @app.get("/books/count_by_author")
-def count_books_by_author(author: str = Query(..., min_length=1, max_length=100)):
-    """
-    Return the number of books written by the given author.
-    """
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT COUNT(*) AS total FROM books WHERE author = %s;",
-                (author,)
-            )
-            result = cur.fetchone()
-            return {"author": author, "total_books": result[0]}
-    finally:
-        app.state.connection_pool.putconn(conn)
+async def count_books_by_author(author: str = Query(..., min_length=1, max_length=100)):
+
+    cache_key = f"count_by_author:{author}"
+    cached = await r.get(cache_key)
+    if cached:
+        data = json.loads(cached)
+        return {"from_cache": True, "results": data}
+
+    async with app.state.pg_pool.acquire() as conn:
+        result = await conn.fetch(
+            "SELECT COUNT(*) AS total FROM books WHERE author = $1;",
+            author
+        )
+    total_books = result[0]["total"] if result else 0
+    await r.set(cache_key, json.dumps(total_books), ex=60)
+    return {"author": author, "total_books": total_books}
+
 
 
 @app.get("/hello/{name}")
-def say_hello(name: str):
+async def say_hello(name: str):
     return {"message": f"Hello {name}!"}
 
 #---------------ADD BOOKS---------------#
 @app.post("/add_bulk/{count}")
-def add_bulk_books(count: int):
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            for i in range(count):
-                cur.execute(
-                    """
-                    INSERT INTO books (title, author, publisher, image_path)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (
-                        f"Book {i}",
-                        f"Author {i % 100}",
-                        "TestPublisher",
-                        "images/book.png",
-                    )
+async def add_bulk_books(count: int):
+
+    async with app.state.pg_pool.acquire() as conn:
+        for i in range(count):
+            await conn.execute(
+                """
+                INSERT INTO books (title, author, publisher, image_path)
+                VALUES ($1, $2, $3, $4)
+                """,
+                (
+                    f"Book {i}",
+                    f"Author {i % 100}",
+                    "TestPublisher",
+                    "images/book.png",
                 )
-        conn.commit()
+            )
 
-        keys = r.keys("search:*")
-        if keys:
-            r.delete(*keys)
+    keys = r.keys("search:*")
+    if keys:
+        await r.delete(*keys)
 
-        return {"message": f"{count} books added successfully."}
-    except Exception as e:
-        return {"error": str(e)}
-    finally:
-        app.state.connection_pool.putconn(conn)
-
+    return {"message": f"{count} books added successfully."}
 
 
 ##############################################################################
-
+"""
+async def get_connection():
+    async with app.state.pg_pool.acquire() as conn:
+        yield conn
+"""
 #
 #@app.get("/")
 #def read_root():

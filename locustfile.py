@@ -5,9 +5,9 @@ class BookUser(HttpUser):
     wait_time = between(1, 3)
 
     # ---------------- SEARCH ----------------
-    @task(5)
+    @task(6)
     def search_books(self):
-        queries = ["Book", "Author", "Test", "Publisher", "1"]
+        queries = list[str(random.randint(100, 999))]
         q = random.choice(queries)
         self.client.get(f"/books/search?query={q}")
 
@@ -28,15 +28,3 @@ class BookUser(HttpUser):
     def say_hello(self):
         name = random.choice(["Ali", "Sara", "Reza", "Mahdi"])
         self.client.get(f"/hello/{name}")
-
-    # ---------------- ADD BOOK ----------------
-    @task(1)
-    def add_book(self):
-        self.client.post(
-            "/books/add",
-            data={
-                "title": f"LoadTestBook {random.randint(1,10000)}",
-                "author": "Locust",
-                "publisher": "PerformanceTest"
-            }
-        )
